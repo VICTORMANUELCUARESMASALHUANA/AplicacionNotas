@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplicación de Notas con Ventanas Emergentes</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #e9ecef;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            color: #495057;
+            margin-bottom: 20px;
+        }
+        #noteInput {
+            width: 300px;
+            padding: 12px;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            transition: border-color 0.3s;
+            font-size: 16px;
+        }
+        #noteInput:focus {
+            border-color: #0056b3;
+            outline: none;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-left: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #notesList {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+            width: 300px;
+        }
+        .note {
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .delete, .edit {
+            background-color: #dc3545;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .edit {
+            background-color: #ffc107;
+        }
+        .edit:hover {
+            background-color: #e0a800;
+        }
+        .delete:hover {
+            background-color: #c82333;
+        }
+        /* Estilo para el modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 300px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Aplicación de Notas</h1>
+    <div>
+        <input type="text" id="noteInput" placeholder="Escribe tu nota aquí...">
+        <button onclick="addNote()">Agregar</button>
+    </div>
+    <ul id="notesList"></ul>
+
+    <!-- Modal para editar nota -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h2>Editar Nota</h2>
+            <input type="text" id="editInput" placeholder="Escribe tu nueva nota...">
+            <button onclick="saveEdit()">Guardar</button>
+        </div>
+    </div>
+
+    <!-- Modal para confirmar eliminación -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDeleteModal()">&times;</span>
+            <h2>Eliminar Nota</h2>
+            <p>¿Estás seguro de que deseas eliminar esta nota?</p>
+            <button onclick="confirmDelete()">Sí</button>
+            <button onclick="closeDeleteModal()">No</button>
+        </div>
+    </div>
+
+    <script>
+        let currentNote = null;
+        let currentNoteText = '';
+
+        document.addEventListener("DOMContentLoaded", loadNotes);
+
+        function loadNotes() {
+            const notes = JSON.parse(localStorage.getItem("notes")) || [];
+            notes.forEach(note => addNoteToDOM(note));
+        }
+
+        function addNote() {
+            const noteInput = document.getElementById("noteInput");
+            const noteText = noteInput.value;
+            if (noteText.trim() === "") {
+                alert("Por favor, escribe una nota.");
+                return;
+            }
+
+            addNoteToDOM(noteText);
+            saveNoteToLocalStorage(noteText);
+            noteInput.value = ""; // Limpiar el campo de entrada
+        }
+
+        function addNoteToDOM(noteText) {
+            const notesList = document.getElementById("notesList");
+            const li = document.createElement("li");
+            li.className = "note";
+            li.textContent = noteText;
+
+            const editButton = document.createElement("button");
+            editButton.innerHTML = '<i class="fas fa-edit"></i>';
+            editButton.className = "edit";
+            editButton.onclick = function() {
+                openEditModal(noteText, li);
+            };
+
+            const deleteButton = document.createElement("button");
+            deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteButton.className = "delete";
+            deleteButton.onclick = function() {
+                openDeleteModal(noteText, li);
+            };
+
+            li.appendChild(editButton);
+            li.appendChild(deleteButton);
+            notesList.appendChild(li);
+        }
+
+        function openEditModal(noteText, li) {
+            currentNote = li;
+            currentNoteText = noteText;
+            document.getElementById("editInput").value = noteText;
+            document.getElementById("editModal").style.display = "block";
+        }
+
+        function closeEditModal() {
+            document.getElementById("editModal").style.display = "none";
+        }
+
+        function saveEdit() {
+            const newText = document.getElementById("editInput").value;
+            if (newText.trim() !== "") {
+                currentNote.firstChild.textContent = newText;
+                updateNoteInLocalStorage(currentNoteText, newText);
+                closeEditModal();
+            }
+        }
+
+        function openDeleteModal(noteText, li) {
+            currentNote = li;
+            currentNoteText = noteText;
+            document.getElementById("deleteModal").style.display = "block";
+        }
+
+        function closeDeleteModal() {
+            document.getElementById("deleteModal").style.display = "none";
+        }
+
+        function confirmDelete() {
+            const notesList = document.getElementById("notesList");
+            notesList.removeChild(currentNote);
+            removeNoteFromLocalStorage(currentNoteText);
+            closeDeleteModal();
+        }
+
+        function saveNoteToLocalStorage(note) {
+            const notes = JSON.parse(localStorage.getItem("notes")) || [];
+            notes.push(note);
+            localStorage.setItem("notes", JSON.stringify(notes));
+        }
+
+        function removeNoteFromLocalStorage(note) {
+            let notes = JSON.parse(localStorage.getItem("notes")) || [];
+            notes = notes.filter(n => n !== note);
+            localStorage.setItem("notes", JSON.stringify(notes));
+        }
+
+        function updateNoteInLocalStorage(oldText, newText) {
+            let notes = JSON.parse(localStorage.getItem("notes")) || [];
+            notes = notes.map(n => n === oldText ? newText : n);
+            localStorage.setItem("notes", JSON.stringify(notes));
+        }
+    </script>
+</body>
+</html>
